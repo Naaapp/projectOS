@@ -7,18 +7,23 @@
 #define shell_h
 
 #define MAX_CMD_SIZE 256
+#define SH_BUFFERSIZE 1024
+#define SH_TOKEN_BUFFERSIZE 64
 
 /* Opaque Structure */
-typedef struct Cmds {
+typedef struct cmd_t Cmd;
+
+struct cmd_t{
 	int n_arguments;
 	char** tokens;
-} Cmd;
+};
 
-/*int bash_cd(char **args);
-int lsh_help(char **args);
-int lsh_exit(char **args);*/
-void bash_loop(void);
+
+Cmd *create_cmd();
+void free_cmd(Cmd *cmd);
 int read_line(Cmd* cmd);
 int launch(Cmd cmd);
+
+
 
 #endif /* shell_h */
