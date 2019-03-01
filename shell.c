@@ -17,12 +17,52 @@
 	#define TOK_DEL " \t\r\n\a"
 
 	/*******************************************************************************/
-    static int lsh_num_builtins_no_arg();
     static int lsh_num_builtins_arg();
+
+    static int lsh_num_builtins_no_arg();
+
+    /*
+     * static int lsh_cd(Cmd cmd);
+     * apply command cd
+     *
+     * Parameters
+     * cmd  a data structure containing arguments
+    */
+
 	static int lsh_cd(Cmd cmd);
-	static int lsh_help();
+
+    /*
+     * static int lsh_help(Cmd cmd);
+     * apply command help
+     *
+     * Parameters
+     * cmd  a data structure containing arguments
+    */
+
+	static int lsh_help(); 
+    
+    /*
+     * static int lsh_exit(Cmd cmd);
+     * apply command exit
+    */
+
 	static int lsh_exit();
+    
+    /*
+     * static int bash_launch_exec(Cmd cmd);
+     * used to execute the given command
+    */
+
     static int bash_launch_exec(Cmd cmd);
+
+    /*
+     * free_tokens(Cmd *cmd);
+     * free the memory used for the args of the command
+     *
+     * Parameters
+     * cmd  a data structure of the command
+    */
+
     static void free_tokens(Cmd *cmd);
 
 	/*
@@ -54,13 +94,11 @@
 	  return sizeof(builtin_str_arg) / sizeof(char *);
 	}
 
-	/*
-	  Builtin function implementations.
-	*/
+	///////static function///////
+    
 	static int lsh_cd(Cmd cmd){
         char **args = cmd.tokens;
 	    if (args[1] == NULL || (strcmp(args[1],"~") == 0)) {
-	        // fprintf(stderr, "lsh: expected argument to \"cd\"\n");
 	        if (chdir(getenv("HOME")) != 0) {
 	            perror("lsh");
 	        }
@@ -72,20 +110,18 @@
 	    }
 	    else {
 	        if (chdir(args[1]) != 0) {
-	        perror("lsh");
+	            perror("lsh");
 	        }
 	    }
 	    return 1;
 	}
 
-	static int lsh_help()
-    {
-	    printf("Theo Stassen's LSH\n");
+	static int lsh_help(){
+	    printf("Author : Theo Stassen, Ludovic Sangiovanni\n");
 	    return 1;
     }
 
-	static int lsh_exit()
-	{
+	static int lsh_exit(){
 	    return 0;
 	}
 
@@ -101,10 +137,9 @@
 		if (pid == 0) 
 		// Child process
 		{
-			//char* path = strcat("./" , cmd.tokens[0]);
 			if (execvp(cmd.tokens[0], cmd.tokens) == -1) 
 			{
-			  perror("shell");
+			    perror("shell");
 			}
 			const char *msg = "finish";
 			close(fd[0]);
@@ -113,7 +148,7 @@
 		else if (pid < 0) 
 		// Error forking
 		{
-		perror("shell");
+		    perror("shell");
 		} 
 		else 
 		// Parent process
@@ -122,7 +157,7 @@
 			close(fd[1]);
 			memset(buf,0,sizeof(buf));
 			read(fd[0],buf,sizeof(buf));
-			if(strcmp(buf, "finish")){
+			if(!strcmp(buf, "finish")){
 				perror("shell");
 			}
 		}
@@ -246,8 +281,7 @@
 	}
 	
 
-	int launch(Cmd cmd)
-	{
+	int launch(Cmd cmd){
 	  int i;
 
 	  if (cmd.tokens[0] == NULL) {
@@ -266,7 +300,6 @@
 	      return (*builtin_func_arg[i])(cmd);
 	    }
 	  }
-
 
 	  return bash_launch_exec(cmd);
 	}
