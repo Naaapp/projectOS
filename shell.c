@@ -117,7 +117,7 @@
 	}
 
 	static int lsh_help(){
-	    printf("Author : Theo Stassen, Ludovic Sangiovanni\n");
+	    printf("Author : Theo Stassen, Ludovic Sangiovanni");
 	    return 1;
     }
 
@@ -204,7 +204,7 @@
 		int c;
 
 		if (!buffer || !token_array) {
-            fprintf(stderr, "shell: allocation error\n");
+            fprintf(stderr, "shell: allocation error");
             exit(EXIT_FAILURE);
 		}
 
@@ -260,7 +260,7 @@
 				buffersize += SH_TOKEN_BUFFERSIZE;
 				token_array = realloc(token_array, buffersize * sizeof(char*));
 				if (!token_array){
-                    fprintf(stderr, "shell: allocation error\n");
+                    fprintf(stderr, "shell: allocation error");
                     exit(EXIT_FAILURE);
 				}
 			}

@@ -20,7 +20,6 @@ static void sigint_h(int sig)
     if(cmd != NULL)
         free_cmd(cmd);
     if(sig == SIGINT || sig == EOF){
-        printf("\n");
         exit(0);
     }
 }
@@ -33,11 +32,10 @@ int main(void)
     signal(SIGINT, sigint_h);
 
     do {
-        printf("$ ");
+        printf("0$ ");
         
         //ctrl + D
         if(feof(stdin)){
-            printf("\n");
             free_cmd(cmd);
             exit(0);
         }
