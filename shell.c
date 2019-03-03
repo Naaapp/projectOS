@@ -122,11 +122,12 @@
     }
 
 	static int lsh_exit(){
-	    return 0;
+	    return -1;
 	}
 
     static int bash_launch_exec(Cmd cmd)
 	{
+		int result = 1;
 		pid_t pid;
 		int fd[2];
 
@@ -140,6 +141,8 @@
 			if (execvp(cmd.tokens[0], cmd.tokens) == -1) 
 			{
 			    perror("shell");
+			    result = 0;
+			    
 			}
 			const char *msg = "finish";
 			close(fd[0]);
@@ -162,7 +165,7 @@
 			}
 		}
 
-		return 1;
+		return result;
 	}
 
     static void free_tokens(Cmd *cmd){

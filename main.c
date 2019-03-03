@@ -30,9 +30,10 @@ int main(void)
     
     cmd = create_cmd();
     signal(SIGINT, sigint_h);
-
+    result = 0;
     do {
-        printf("0$ ");
+        printf("%d$ ",result);
+
         
         //ctrl + D
         if(feof(stdin)){
@@ -44,7 +45,7 @@ int main(void)
 
         result = launch(*cmd);
     } 
-    while (result);
+    while (result != -1);
     
         
     free_cmd(cmd);
