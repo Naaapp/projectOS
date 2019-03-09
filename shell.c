@@ -134,6 +134,7 @@
 		pid_t pid, wpid;
 		int fd[2];
 		int status;
+		int returnvalue =1;
 
 		pipe(fd);
 
@@ -190,7 +191,7 @@
 
             	if (execvp(cmd.tokens[0], cmd.tokens) == -1) 
 				{
-			    perror("shell");
+			    perror("shell"); returnvalue = 0;
 				}
 				const char *msg = "finish";
 				close(fd[0]);
@@ -248,7 +249,7 @@
 			}
             
 		}
-		return 1;
+		return returnvalue;
 	}
 
     static void free_tokens(Cmd *cmd){
