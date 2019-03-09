@@ -31,8 +31,12 @@ int main(void)
     cmd = create_cmd();
     signal(SIGINT, sigint_h);
     result = 0;
+
     do {
-        printf("%d$ ",result);
+
+        fflush(stdout);
+        printf("%d$ ", result);
+        fflush(stdout);
 
         
         //ctrl + D
@@ -44,6 +48,8 @@ int main(void)
         read_line(cmd);
 
         result = launch(*cmd);
+
+        fflush(stdout);
     } 
     while (result != -1);
     
