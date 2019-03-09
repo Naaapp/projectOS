@@ -7,15 +7,13 @@
 #define shell_h
 
 #define MAX_CMD_SIZE 256
-#define SH_BUFFERSIZE 1024
-#define SH_TOKEN_BUFFERSIZE 64
 
 /* Opaque Structure */
 typedef struct cmd_t Cmd;
 
 struct cmd_t{
 	int n_arguments;
-	char** tokens;
+	char tokens[MAX_CMD_SIZE][MAX_CMD_SIZE];
 };
 
 

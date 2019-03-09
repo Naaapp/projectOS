@@ -33,11 +33,11 @@ int main(void)
     result = 0;
 
     do {
-
         fflush(stdout);
         printf("%d$ ", result);
         fflush(stdout);
-
+    
+        
         
         //ctrl + D
         if(feof(stdin)){
