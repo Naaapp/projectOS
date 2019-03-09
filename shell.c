@@ -91,22 +91,23 @@
 	///////static function///////
     
 	static int lsh_cd(Cmd cmd){
+		int returnvalue = 1;
 	    if (strcmp(cmd.tokens[1],"~") == 0){
 	        if (chdir(getenv("HOME")) != 0) {
-	            perror("lsh");
+	            perror("lsh"); returnvalue = 0;
 	        }
 	    }
 	    else if ((strcmp(cmd.tokens[1],"..") == 0)){
 	  	    if (chdir("../") != 0) {
-	            perror("lsh");
+	            perror("lsh"); returnvalue = 0;
 	        }
 	    }
 	    else {
 	        if (chdir(cmd.tokens[1]) != 0) {
-	            perror("lsh");
+	            perror("lsh"); returnvalue = 0;
 	        }
 	    }
-	    return 1;
+	    return returnvalue;
 	}
 
 	static int lsh_help(){
@@ -120,9 +121,10 @@
 
     static int bash_launch_exec(Cmd cmd)
 	{
-		pid_t pid;
+		pid_t pid, wpid;
 		int fd[2];
 		int returnvalue =1;
+		int status = 0;
 
 		pipe(fd);
 
@@ -168,19 +170,13 @@
                     perror("shell"); returnvalue = 0;
                 }
             }
-            const char *msg = "finish";
-            close(fd[0]);
-            write(fd[1],msg,strlen(msg));
 		} 
 		else // Parent process
 		{
-			char buf[64];
-			close(fd[1]);
-			memset(buf,0,sizeof(buf));
-			read(fd[0],buf,sizeof(buf));
-			if(strcmp(buf, "finish")){
-				perror("shell");
-			}
+
+			do {
+      			wpid = waitpid(pid, &status, WUNTRACED);
+    		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
             
 		}
 		return returnvalue;
