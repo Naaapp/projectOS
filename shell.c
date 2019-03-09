@@ -163,26 +163,32 @@
                 strcat(currDir, cmd.tokens[0]+2);
                 cmd.tokens[0] = currDir;
 
-                exec_result = execv(cmd.tokens[0], cmd.tokens);
+                if (exec_result = execv(cmd.tokens[0], cmd.tokens) == -1){
+                	perror("shell"); returnvalue = 0;
+                }
+
 
                 const char *msg = "finish";
 				close(fd[0]);
 				write(fd[1],msg,strlen(msg));
 
-                exit(exec_result);
+                //exit(exec_result);
 			}
 			//Case 2 : absolute path 
 			else if(strlen(cmd.tokens[0]) > 1 && cmd.tokens[0][0] ==  '/'){
 
 				printf("case2\n");
 
-	            exec_result = execv(cmd.tokens[0], cmd.tokens);
+	            if (exec_result = execv(cmd.tokens[0], cmd.tokens) == -1)
+	            {
+	            	perror("shell"); returnvalue = 0;
+	            }
 
 	            const char *msg = "finish";
 				close(fd[0]);
 				write(fd[1],msg,strlen(msg));
 
-	            exit(exec_result);
+	            //exit(exec_result);
             }
             //Case 3 : search in the PATH
             else {
