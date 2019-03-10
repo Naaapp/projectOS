@@ -92,7 +92,7 @@
     
 	static int lsh_cd(Cmd cmd){
 		int returnvalue = 1;
-	    if (strcmp(cmd.tokens[1],"~") == 0){
+	    if (strcmp(cmd.tokens[1],"~") == 0 || cmd.n_arguments == 1){
 	        if (chdir(getenv("HOME")) != 0) {
 	            perror("lsh"); returnvalue = 0;
 	        }
@@ -153,7 +153,7 @@
 
                 if (exec_result == -1) 
                 {
-                    perror("shell"); returnvalue = 0;
+                    returnvalue = 0;
                 }
             }
             else{
@@ -167,7 +167,7 @@
 
                 if (exec_result == -1) 
                 {
-                    perror("shell"); returnvalue = 0;
+                    returnvalue = 0;
                 }
             }
 		} 
@@ -200,7 +200,7 @@
     }
 
 	int read_line(Cmd* cmd){
-		char buffer[MAX_CMD_SIZE];
+		char buffer[MAX_CMD_SIZE*MAX_CMD_SIZE+1];
 		char *token;
 		int position = 0;
 		int c;
@@ -217,13 +217,13 @@
 			if (c == EOF || c == '\n') 
 			//In this case we reached the end of the line, we have our buffer
 			{
-			  buffer[position] = '\0';
-			  finish = 1;
+			    buffer[position] = '\0';
+			    finish = 1;
 			} 
 			//In this case we put the character in the buffer
 			else 
 			{
-			  buffer[position] = c;
+			    buffer[position] = c;
 			}
 
 			position++;
