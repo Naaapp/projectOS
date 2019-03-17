@@ -12,6 +12,9 @@
 	#include <stdio.h>
 	#include <string.h>
 	#include <errno.h>
+	#include <fcntl.h>
+	#include <termios.h>
+	#include <signal.h>
 	#include "shell.h"
 
 	
@@ -19,6 +22,10 @@
 
 	#define MAX_LINE_LENGHT 256
 	#define COMMAND_NOT_FOUND_ERROR 0
+
+	static pid_t GBSH_PID;
+	static pid_t GBSH_PGID;
+	pid_t pid;
 
 	/*******************************************************************************/
     static int lsh_num_builtins_arg();
@@ -125,8 +132,6 @@
 		int fd[2];
 		int returnvalue =1;
 		int status = 0;
-
-		pipe(fd);
 
 		pid = fork();
         
@@ -257,7 +262,8 @@
 
 	    for (i = 0; i < lsh_num_builtins_no_arg(); i++) {
 	        if (strcmp(cmd.tokens[0], builtin_str_no_arg[i]) == 0) {
-	            return (*builtin_func_no_arg[i]) ();
+	        	int result =  (*builtin_func_no_arg[i]) ();
+	            return result;
 	        }
 	    }
 	    for (i = 0; i < lsh_num_builtins_arg(); i++) {
@@ -265,5 +271,172 @@
 	            return (*builtin_func_arg[i])(cmd);
 	        }
 	    }
-	    return bash_launch_exec(cmd);
+	    return pipeHandler(cmd);
     }
+
+
+    int pipeHandler(Cmd cmd){
+    	
+    	int filedes[2]; // pos. 0 output, pos. 1 input of the pipe
+		int filedes2[2];
+		int num_cmds = 1;
+		char *command[256]; //contain the first command untreated
+
+		pid_t pid, wpid;
+		int status;
+
+		int err = -1;
+		int end = 0; //to stop the loop when no more argument
+
+		int i = 0;
+		int j = 0;
+		int k = 0;
+		int returnvalue = 0;
+
+
+
+		//count the number of command
+		while ( i < cmd.n_arguments && cmd.tokens[i] != NULL){
+			if (strcmp(cmd.tokens[i],"|") == 0){
+				num_cmds++;
+			}
+			i++;
+		}
+
+		//Loop, for each command
+		while (j < cmd.n_arguments && (cmd.tokens[j] != NULL && end != 1)){
+
+
+
+			k = 0;
+
+			//Take the first command untreated of the cmd
+			while (j < cmd.n_arguments && strcmp(cmd.tokens[j],"|") != 0){
+				command[k] = cmd.tokens[j];
+				j++;	
+				if (j < cmd.n_arguments && cmd.tokens[j] == NULL){
+					end = 1;
+					k++;
+					break;
+				}
+				k++;
+			}
+
+			printf("%s\n", command[0] );
+
+			//
+			command[k] = NULL;
+			j++; 
+
+
+			//Pipes for odd or event step
+			if (i % 2 != 0){
+				pipe(filedes); // for odd i
+			}else{
+				pipe(filedes2); // for even i
+			}
+
+			pid=fork();
+		
+			if(pid==-1){ //Error			
+				if (i != num_cmds - 1){
+					if (i % 2 != 0){
+						close(filedes[1]); // for odd i
+					}else{
+						close(filedes2[1]); // for even i
+					} 
+				}			
+				char* error = strerror(errno);
+	        	printf("fork error: %s\n", error);
+	        	return -1;
+			}
+			else if(pid==0){ //Child
+
+				printf("child" );
+
+				//first command
+				if (i == 0){
+					printf("first");
+					dup2(filedes2[1], STDOUT_FILENO);
+				}
+
+				//last command
+				else if (i == num_cmds - 1){
+					printf("%s",last);
+					if (num_cmds % 2 != 0){ // for odd number of commands
+						dup2(filedes[0],STDIN_FILENO);
+					}else{ // for even number of commands
+						dup2(filedes2[0],STDIN_FILENO);
+					}
+				}
+
+				//middle command
+				else{ 
+					printf("middle");
+					// for odd i
+					if (i % 2 != 0){
+						dup2(filedes2[0],STDIN_FILENO); 
+						dup2(filedes[1],STDOUT_FILENO);
+					}
+					// for even i
+					else{ 
+						dup2(filedes[0],STDIN_FILENO); 
+						dup2(filedes2[1],STDOUT_FILENO);					
+					} 
+				}
+				printf("exec");
+
+				if (execvp(command[0],command)==err){
+					kill(getpid(),SIGTERM);
+				} 
+				
+			}
+			 
+			printf("common");
+			//first command
+			if (i == 0){
+				printf("firstcommon");
+				close(filedes2[1]);
+			}
+
+			//last command
+			else if (i == num_cmds - 1){
+				if (num_cmds % 2 != 0){ // for odd number of commands
+					close(filedes[0]);
+				}else{ // for even number of commands
+					close(filedes2[0]);
+				}
+			}
+
+			//middle command
+			else{ 
+				// for odd i
+				if (i % 2 != 0){
+					close(filedes2[0]);
+					close(filedes[1]);
+				}
+				// for even i
+				else{ 
+					close(filedes[0]);
+					close(filedes2[1]);				
+				} 
+			}
+
+
+			if(pid == 1){
+				printf("parent" );
+				do {
+	      			wpid = waitpid(pid, &status, WUNTRACED);
+	    		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    		}
+
+			i++;
+
+			return 1;
+		}
+
+		
+	}
+
+
+ 

@@ -33,17 +33,22 @@ int main(void)
     result = 0;
 
     do {
-        fflush(stdout);
-        printf("%d$ ", result);
-        fflush(stdout);
-    
-        
-        
+
         //ctrl + D
         if(feof(stdin)){
             free_cmd(cmd);
             exit(0);
         }
+
+        if(result == -1){
+            free_cmd(cmd);
+            exit(0);
+        }
+
+        fflush(stdout);
+        printf("%d$ ", result);
+        fflush(stdout);
+    
 
         read_line(cmd);
 
@@ -51,7 +56,7 @@ int main(void)
 
         fflush(stdout);
     } 
-    while (result != -1);
+    while (1);
     
         
     free_cmd(cmd);
