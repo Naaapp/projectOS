@@ -17,8 +17,6 @@
 
 #define TOK_DEL " \t\r\n\a"
 
-int returnvalue = 1;
-
 /*******************************************************************************/
 static int lsh_num_builtins_arg();
 
@@ -155,9 +153,9 @@ static int bash_launch_exec(Cmd cmd)
 
                 tpid = wait(&status);
                 if(tpid != pid)
-                    exit(tpid);
+                    exit(tpid);                
             } while(tpid != pid);
-            return status;
+            return WIFEXITED(status);
         }
     }
 
@@ -193,7 +191,7 @@ static int bash_launch_exec(Cmd cmd)
     for (i = 0; i < pipe_count + 1; i++) {
             wait(&status);
     }
-    return 0;
+    return WEXITSTATUS(status);
 }
 
 ////end of static functions

@@ -33,7 +33,7 @@ int main(void)
     result = 0;
 
     do {
-        printf("0$ ");
+        printf("%d$ ", result);
         fflush(stdout);
     
         
