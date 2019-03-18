@@ -33,8 +33,7 @@ int main(void)
     result = 0;
 
     do {
-        fflush(stdout);
-        printf("%d$ ", result);
+        printf("0$ ");
         fflush(stdout);
     
         
@@ -48,13 +47,12 @@ int main(void)
         read_line(cmd);
 
         result = launch(*cmd);
-
-        fflush(stdout);
+        if(result == -1){
+            free_cmd(cmd);
+            exit(0);
+        }
     } 
-    while (result != -1);
-    
-        
-    free_cmd(cmd);
+    while (1);
 
 	return EXIT_SUCCESS;
 }
