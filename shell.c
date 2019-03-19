@@ -17,6 +17,8 @@
 
 #define TOK_DEL " \t\r\n\a"
 
+int specialreturnvalue = 1;
+
 /*******************************************************************************/
 static int lsh_num_builtins_arg();
 
@@ -33,11 +35,9 @@ static int lsh_num_builtins_no_arg();
 static int lsh_cd(Cmd cmd);
 
 /*
- * static int lsh_help(Cmd cmd);
+ * static int lsh_help;
  * apply command help
  *
- * Parameters
- * cmd  a data structure containing arguments
 */
 
 static int lsh_help(); 
@@ -50,18 +50,29 @@ static int lsh_help();
 static int lsh_exit();
 
 /*
+ * static int lsh_crypto;
+ * apply command crypto
+ *
+ * Parameters
+*/
+
+static int lsh_crypto();
+
+/*
  * static int bash_launch_exec(Cmd cmd);
  * used to execute the given command
 */
 
 static int bash_launch_exec(Cmd cmd);
 
+
 /*
   List of builtin commands, followed by their corresponding functions.
  */
 char *builtin_str_no_arg[] = {
   "help",
-  "exit"
+  "exit",
+  "crypto"
 };
 
 char *builtin_str_arg[] = {
@@ -70,7 +81,8 @@ char *builtin_str_arg[] = {
 
 int (*builtin_func_no_arg[]) () = {
   &lsh_help,
-  &lsh_exit
+  &lsh_exit,
+  &lsh_crypto
 };
 
 int (*builtin_func_arg[]) (Cmd cmd) = {
@@ -86,6 +98,40 @@ static int lsh_num_builtins_arg() {
 }
 
 ///////static function///////
+
+static int lsh_crypto () {
+    FILE * fp;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    fp = fopen("/proc/crypto", "r");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    int blocksizefound = 1;
+    while ((read = getline(&line, &len, fp)) != -1) {
+
+        strtok(line, "\n"); //Remove the \n at the end of the line
+        if(strncmp(line,"name",4)==0){ //If the line begin with "name"
+
+            if(!blocksizefound) //If the blocksize of the previous name not printed because doesn't exist 
+                printf("blocksize : /\n");
+            blocksizefound = 0;
+
+            printf("%s | ", line);
+        }
+        if(strncmp(line,"blocksize",9)==0){ //If the line begin with "blocksize"
+            printf("%s\n", line);
+            blocksizefound = 1;
+        }
+    }
+
+    fclose(fp);
+    if (line)
+        free(line);
+    exit(EXIT_SUCCESS);
+}
 
 static int lsh_cd(Cmd cmd){
     int returnvalue = 1;
@@ -144,6 +190,7 @@ static int bash_launch_exec(Cmd cmd)
      
         if (pid == 0){
             execvp(args[0], args);
+            
             printf("\n");
             fflush(stdout);
             exit(0);
@@ -266,7 +313,6 @@ int launch(Cmd cmd){
         // An empty command was entered.
         return 1;
     }
-
     for (i = 0; i < lsh_num_builtins_no_arg(); i++) {
         if (strcmp(cmd.tokens[0], builtin_str_no_arg[i]) == 0) {
             return (*builtin_func_no_arg[i]) ();
