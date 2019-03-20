@@ -5,6 +5,9 @@
 
 /*******************************************************************************/
 
+#define _GNU_SOURCE
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -12,7 +15,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <linux/if_link.h>
+#include <linux/if_packet.h>
 #include "shell.h"
+#include <netinet/in.h>
 
 
 #define TOK_DEL " \t\r\n\a"
@@ -56,7 +66,7 @@ static int lsh_exit();
  * Parameters
 */
 
-static int lsh_crypto();
+static int lsh_sys(Cmd cmd);
 
 /*
  * static int bash_launch_exec(Cmd cmd);
@@ -72,21 +82,21 @@ static int bash_launch_exec(Cmd cmd);
 char *builtin_str_no_arg[] = {
   "help",
   "exit",
-  "crypto"
 };
 
 char *builtin_str_arg[] = {
-  "cd"
+  "cd",
+  "sys"
 };
 
 int (*builtin_func_no_arg[]) () = {
   &lsh_help,
   &lsh_exit,
-  &lsh_crypto
 };
 
 int (*builtin_func_arg[]) (Cmd cmd) = {
   &lsh_cd,
+  &lsh_sys
 };
 
 static int lsh_num_builtins_no_arg() {
@@ -99,39 +109,125 @@ static int lsh_num_builtins_arg() {
 
 ///////static function///////
 
-static int lsh_crypto () {
+static int lsh_sys (Cmd cmd) {
     FILE * fp;
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
 
-    fp = fopen("/proc/crypto", "r");
-    if (fp == NULL)
-        exit(EXIT_FAILURE);
-
-    int blocksizefound = 1;
-    while ((read = getline(&line, &len, fp)) != -1) {
-
-        strtok(line, "\n"); //Remove the \n at the end of the line
-        if(strncmp(line,"name",4)==0){ //If the line begin with "name"
-
-            if(!blocksizefound) //If the blocksize of the previous name not printed because doesn't exist 
-                printf("blocksize : /\n");
-            blocksizefound = 0;
-
-            printf("%s | ", line);
-        }
-        if(strncmp(line,"blocksize",9)==0){ //If the line begin with "blocksize"
-            printf("%s\n", line);
-            blocksizefound = 1;
-        }
+    if(cmd.n_arguments == 1){
+        return 0;
     }
 
-    fclose(fp);
-    if (line)
-        free(line);
-    exit(EXIT_SUCCESS);
+    if(strcmp(cmd.tokens[1],"crypto")==0){
+        fp = fopen("/proc/crypto", "r");
+        if (fp == NULL)
+            exit(EXIT_FAILURE);
+
+        int blocksizefound = 1;
+        while ((read = getline(&line, &len, fp)) != -1) {
+
+            strtok(line, "\n"); //Remove the \n at the end of the line
+            if(strncmp(line,"name",4)==0){ //If the line begin with "name"
+
+                if(!blocksizefound) //If the blocksize of the previous name not printed because doesn't exist 
+                    printf("blocksize : /\n");
+                blocksizefound = 0;
+
+                printf("%s | ", line);
+            }
+            if(strncmp(line,"blocksize",9)==0){ //If the line begin with "blocksize"
+                printf("%s\n", line);
+                blocksizefound = 1;
+            }
+        }
+
+        fclose(fp);
+        if (line)
+            free(line);
+    }
+    else if(strcmp(cmd.tokens[1],"interfaces")==0){
+
+        struct ifaddrs *ifaddr, *ifa;
+        int family, s, n, s_;
+        char host[NI_MAXHOST];
+
+        if (getifaddrs(&ifaddr) == -1) {
+           perror("getifaddrs");
+           exit(EXIT_FAILURE);
+        }
+
+        /* Walk through linked list, maintaining head pointer so we
+          can free list later */
+
+
+
+           for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+               if (ifa->ifa_addr == NULL)
+                   continue;
+
+               family = ifa->ifa_addr->sa_family;
+
+               /* Display interface name  */
+
+               printf("%-8s", ifa->ifa_name);
+
+
+               if (family == AF_INET ) {
+
+                    /* For an AF_INET* interface address, display the address */
+                   s = getnameinfo(ifa->ifa_addr,
+                            sizeof(struct sockaddr_in),
+                            host, NI_MAXHOST,
+                            NULL, 0, NI_NUMERICHOST);
+                   if (s != 0) {
+                       printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                       exit(EXIT_FAILURE);
+                   }
+
+                   printf("\t\taddress: <%s>\n", host);
+
+                    /* For an AF_INET* interface address, display the netmask */
+                   s_ = getnameinfo(ifa->ifa_netmask,
+                            sizeof(struct sockaddr_in),
+                            host, NI_MAXHOST,
+                            NULL, 0, NI_NUMERICHOST);
+                   if (s_ != 0) {
+                       printf("getnameinfo() failed: %s\n", gai_strerror(s_));
+                       exit(EXIT_FAILURE);
+                   }
+
+                   printf("\t\tnetmask: <%s>\n", host);
+
+               } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+
+                   struct rtnl_link_stats *stats = ifa->ifa_data;
+
+                   printf("\t\ttx_packets = %10u; rx_packets = %10u\n"
+                          "\t\ttx_bytes   = %10u; rx_bytes   = %10u\n",
+                          stats->tx_packets, stats->rx_packets,
+                          stats->tx_bytes, stats->rx_bytes);
+
+                   char macp[INET6_ADDRSTRLEN];
+                   struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
+                    int i;
+                    int len = 0;
+                    for (i = 0; i < 6; i++) {
+                        len += sprintf(macp+len, "%02X%s", s->sll_addr[i], i < 5 ? ":":"");
+                    }
+                    printf("%s: %s\n", (ifa)->ifa_name, macp);
+               }
+
+           }
+
+        freeifaddrs(ifaddr);
+        exit(EXIT_SUCCESS);
+
+        }
+
+    return 1;
 }
+
 
 static int lsh_cd(Cmd cmd){
     int returnvalue = 1;
