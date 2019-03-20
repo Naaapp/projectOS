@@ -75,6 +75,14 @@ static int lsh_sys(Cmd cmd);
 
 static int bash_launch_exec(Cmd cmd);
 
+struct interfaces_info
+{
+    char* name;
+    char* address;
+    int blocksize;
+    char* netmask;
+    char* macadress;
+};
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -160,6 +168,10 @@ static int lsh_sys (Cmd cmd) {
         /* Walk through linked list, maintaining head pointer so we
           can free list later */
 
+        int size_int_info;
+        struct interfaces_info infos[size_int_info];
+        int n_found=0;
+
 
 
            for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
@@ -169,6 +181,20 @@ static int lsh_sys (Cmd cmd) {
                family = ifa->ifa_addr->sa_family;
 
                /* Display interface name  */
+
+               //  int found = 0;
+               //  int interface_id = -1;
+               // for(size_t i=0;i<10;i++){
+               //      if(infos[i].name == ifa->ifa_name){
+               //          interface_id = i;
+               //          found = 1;
+               //      }
+               // }
+               // if(!found){
+               //      interface_id = n_found;
+               //      n_found++;
+               //      infos[interface_id] = ifa->ifa_name;
+               // }
 
                printf("%-8s", ifa->ifa_name);
 
@@ -203,11 +229,13 @@ static int lsh_sys (Cmd cmd) {
 
                    struct rtnl_link_stats *stats = ifa->ifa_data;
 
+                   /* Display the packets */
                    printf("\t\ttx_packets = %10u; rx_packets = %10u\n"
                           "\t\ttx_bytes   = %10u; rx_bytes   = %10u\n",
                           stats->tx_packets, stats->rx_packets,
                           stats->tx_bytes, stats->rx_bytes);
 
+                   /* Display the mac adress */
                    char macp[INET6_ADDRSTRLEN];
                    struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
                     int i;
@@ -219,6 +247,10 @@ static int lsh_sys (Cmd cmd) {
                }
 
            }
+
+        for (size_t i=0;i<n_found;i++){
+            printf("%s\n", infos[i].name );
+        }
 
         freeifaddrs(ifaddr);
         exit(EXIT_SUCCESS);
