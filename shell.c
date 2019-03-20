@@ -155,7 +155,7 @@ static int bash_launch_exec(Cmd cmd)
             execvp(args[0], args);
             printf("\n");
             fflush(stdout);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         else{
             do{
@@ -163,6 +163,8 @@ static int bash_launch_exec(Cmd cmd)
                 if(tpid != pid)
                     exit(tpid);                
             } while(tpid != pid);
+
+            //printf("status : %d\n", status);
 
             return status_to_return_value(status);
         }
@@ -188,7 +190,7 @@ static int bash_launch_exec(Cmd cmd)
             }
 
             execvp(args[pipe_locate[i] + 1], args + pipe_locate[i] + 1);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         else if (i > 0) {
             close(pfd[i - 1][0]); close(pfd[i - 1][1]);
