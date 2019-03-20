@@ -117,6 +117,15 @@ static int lsh_exit(){
     return -1;
 }
 
+static int status_to_return_value(int status){
+    int returnvalue = 0;
+    if(status == 0)
+        returnvalue = 1;
+    else
+        returnvalue = 0;
+    return returnvalue;
+}
+
 static int bash_launch_exec(Cmd cmd)
 {
     pid_t pid, tpid;
@@ -146,16 +155,16 @@ static int bash_launch_exec(Cmd cmd)
             execvp(args[0], args);
             printf("\n");
             fflush(stdout);
-            exit(0);
+            exit(1);
         }
         else{
             do{
-
                 tpid = wait(&status);
                 if(tpid != pid)
                     exit(tpid);                
             } while(tpid != pid);
-            return WIFEXITED(status);
+
+            return status_to_return_value(status);
         }
     }
 
@@ -179,7 +188,7 @@ static int bash_launch_exec(Cmd cmd)
             }
 
             execvp(args[pipe_locate[i] + 1], args + pipe_locate[i] + 1);
-            exit(0);
+            exit(1);
         }
         else if (i > 0) {
             close(pfd[i - 1][0]); close(pfd[i - 1][1]);
@@ -191,7 +200,7 @@ static int bash_launch_exec(Cmd cmd)
     for (i = 0; i < pipe_count + 1; i++) {
             wait(&status);
     }
-    return WEXITSTATUS(status);
+    return status_to_return_value(status);
 }
 
 ////end of static functions
