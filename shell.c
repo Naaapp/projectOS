@@ -168,7 +168,7 @@ static int lsh_sys (Cmd cmd) {
         /* Walk through linked list, maintaining head pointer so we
           can free list later */
 
-        int size_int_info;
+        int size_int_info = 10;
         struct interfaces_info infos[size_int_info];
         int n_found=0;
 
@@ -182,19 +182,23 @@ static int lsh_sys (Cmd cmd) {
 
                /* Display interface name  */
 
-               //  int found = 0;
-               //  int interface_id = -1;
-               // for(size_t i=0;i<10;i++){
-               //      if(infos[i].name == ifa->ifa_name){
-               //          interface_id = i;
-               //          found = 1;
-               //      }
-               // }
-               // if(!found){
-               //      interface_id = n_found;
-               //      n_found++;
-               //      infos[interface_id] = ifa->ifa_name;
-               // }
+                int found = 0;
+                int interface_id = -1;
+               for(size_t i=0;i<n_found;i++){
+                    printf("%s\n", infos[i].name);
+                    if(strcmp(infos[i].name, ifa->ifa_name)){
+                        printf("entered\n" );
+                        interface_id = i;
+                        found = 1;
+                    }
+               }
+               if(!found){
+                    printf("test\n");
+                    interface_id = n_found;
+                    n_found++;
+                    printf("found%s\n", ifa->ifa_name );
+                    infos[interface_id].name = ifa->ifa_name;
+               }
 
                printf("%-8s", ifa->ifa_name);
 
@@ -247,6 +251,8 @@ static int lsh_sys (Cmd cmd) {
                }
 
            }
+
+           printf("%s\n", n_found );
 
         for (size_t i=0;i<n_found;i++){
             printf("%s\n", infos[i].name );
