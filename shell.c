@@ -1,7 +1,9 @@
 
 /*
-  Function Declarations for builtin shell commands:
- */
+ * Shell implementation by Théo Stassen and Ludovic Sangiovanni
+ * 20/03/19
+ * shell.c
+*/
 
 /*******************************************************************************/
 
@@ -14,44 +16,60 @@
 #include <errno.h>
 #include "shell.h"
 
-
 #define TOK_DEL " \t\r\n\a"
 
 /*******************************************************************************/
-static int lsh_num_builtins_arg();
 
+
+/*
+ * calculate number of builtin function
+ *
+ * Return
+ * number of builtins functions
+*/
+static int lsh_num_builtins_arg();
 static int lsh_num_builtins_no_arg();
 
 /*
- * static int lsh_cd(Cmd cmd);
  * apply command cd
  *
  * Parameters
- * cmd  a data structure containing arguments
+ * cmd  a data structure containing arguments of a command
+ * Return 
+ * value indicates the success/fail o the command
 */
 
 static int lsh_cd(Cmd cmd);
 
 /*
- * static int lsh_help(Cmd cmd);
  * apply command help
  *
  * Parameters
- * cmd  a data structure containing arguments
+ * cmd  a data structure containing arguments of a command
+ * Return 
+ * value indicates the success/fail of the command
 */
 
 static int lsh_help(); 
 
 /*
- * static int lsh_exit(Cmd cmd);
- * apply command exit
+ * used to execute the given command
+ *
+ * Parameters
+ * cmd  a data structure containing arguments of a command
+ * Return 
+ * value indicates the success/fail of the command
 */
 
 static int lsh_exit();
 
 /*
- * static int bash_launch_exec(Cmd cmd);
  * used to execute the given command
+ *
+ * Parameters
+ * cmd  a data structure containing arguments of a command
+ * Return 
+ * value indicates the success/fail of the command
 */
 
 static int bash_launch_exec(Cmd cmd);
@@ -89,16 +107,19 @@ static int lsh_num_builtins_arg() {
 
 static int lsh_cd(Cmd cmd){
     int returnvalue = 1;
+    //Case 1 : cd ~ 
     if (strcmp(cmd.tokens[1],"~") == 0 || cmd.n_arguments == 1){
         if (chdir(getenv("HOME")) != 0) {
             returnvalue = 0;
         }
     }
+    //Case 2 : cd ..
     else if ((strcmp(cmd.tokens[1],"..") == 0)){
         if (chdir("../") != 0) {
             returnvalue = 0;
         }
     }
+    //Case 3 : cd dirname, cd /dirname, cd ./dirname
     else {
         if (chdir(cmd.tokens[1]) != 0) {
             returnvalue = 0;
@@ -128,13 +149,17 @@ static int status_to_return_value(int status){
 
 static int bash_launch_exec(Cmd cmd)
 {
+    //Contain the tokens but with NULL instead "|" and a NULL at the end 
+    //to be usable by the pipe execution. 
+    char *args[MAX_CMD_SIZE];
+
+    //Pipe declarations
     pid_t pid, tpid;
     int pfd[MAX_CMD_SIZE][2];
-
-    char *args[MAX_CMD_SIZE];        
     int i = 0, pipe_locate[MAX_CMD_SIZE], pipe_count = 0;
     pipe_locate[0] = -1;
 
+    //Search "|" to know if pipes needed
     for(i=0; i < cmd.n_arguments; i++){
         args[i] = cmd.tokens[i];
         if(strcmp(cmd.tokens[i], "|") == 0){
@@ -145,58 +170,77 @@ static int bash_launch_exec(Cmd cmd)
     }
     args[i] = NULL;
 
+    //No pipe needed, normal execution (single fork)
     if(pipe_count == 0){
         int status;
+
         pid = fork();
+        //Error when forking
         if (pid == -1)
             return -1;
-     
+        //Child process
         if (pid == 0){
             execvp(args[0], args);
             printf("\n");
             fflush(stdout);
             exit(1);
         }
+        //Parent process
         else{
             do{
                 tpid = wait(&status);
                 if(tpid != pid)
                     exit(tpid);                
             } while(tpid != pid);
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
             return status_to_return_value(status);
         }
     }
 
+    //Pipes needed, loop which manage the different commands and execute them
     for (i = 0; i < pipe_count + 1 && pipe_count != 0; i++) {
         if (i != pipe_count) pipe(pfd[i]);
 
-        if (fork() == 0) {
+        pid = fork();
+        //Error when forking
+        if (pid == -1)
+            return -1;
+        //Child process
+        if (pid == 0) {
+            //First command
             if (i == 0) {
                 dup2(pfd[i][1], 1);
                 close(pfd[i][0]); 
                 close(pfd[i][1]);
-            } else if (i == pipe_count) {
+            } 
+            //Last command
+            else if (i == pipe_count) {
                 dup2(pfd[i - 1][0], 0);
                 close(pfd[i - 1][0]); 
                 close(pfd[i - 1][1]);
-            } else {
+            } 
+            //Another command
+            else {
                 dup2(pfd[i - 1][0], 0);
                 dup2(pfd[i][1], 1);
                 close(pfd[i - 1][0]); close(pfd[i - 1][1]);
                 close(pfd[i][0]); close(pfd[i][1]);
             }
 
+            //Execute current command
             execvp(args[pipe_locate[i] + 1], args + pipe_locate[i] + 1);
             exit(1);
         }
+        //Parent process
         else if (i > 0) {
             close(pfd[i - 1][0]); close(pfd[i - 1][1]);
         }
     }
-
+    //Wait the end of all commands
     int status;
-
     for (i = 0; i < pipe_count + 1; i++) {
             wait(&status);
     }
@@ -229,27 +273,20 @@ int read_line(Cmd* cmd){
     //Loop to read the line
     int finish = 0;
     while (!finish) {
-
-
         //We read the next character
         c = getchar();
 
-
-        if (c == EOF || c == '\n') 
         //In this case we reached the end of the line, we have our buffer
-        {
+        if (c == EOF || c == '\n') {
             buffer[position] = '\0';
             finish = 1;
         } 
         //In this case we put the character in the buffer
-        else 
-        {
+        else {
             buffer[position] = c;
         }
-
         position++;
     }
-
     position = 0;
 
     //Loop to parse the line
@@ -261,7 +298,6 @@ int read_line(Cmd* cmd){
         token = strtok(NULL, TOK_DEL);
         n_args++;
     }
-
     cmd->n_arguments = n_args;
 
     return 0;
@@ -276,15 +312,18 @@ int launch(Cmd cmd){
         return 1;
     }
 
+    //We check if the entered command is one of the builtin (whitout arguments)
     for (i = 0; i < lsh_num_builtins_no_arg(); i++) {
         if (strcmp(cmd.tokens[0], builtin_str_no_arg[i]) == 0) {
             return (*builtin_func_no_arg[i]) ();
         }
     }
+    //We check if the entered command is one of the builtin (with arguments)
     for (i = 0; i < lsh_num_builtins_arg(); i++) {
         if (strcmp(cmd.tokens[0], builtin_str_arg[i]) == 0) {
             return (*builtin_func_arg[i])(cmd);
         }
     }
+    //If no one of these case, we try to execute the command
     return bash_launch_exec(cmd);
 }
