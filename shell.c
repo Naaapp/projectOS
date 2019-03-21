@@ -10,7 +10,9 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -173,93 +175,126 @@ static int lsh_sys (Cmd cmd) {
         struct interfaces_info infos[size_int_info];
         size_t n_found=0;
 
-           for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-                if (ifa->ifa_addr == NULL)
-                    continue;
+        for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+            if (ifa->ifa_addr == NULL)
+                continue;
 
-                family = ifa->ifa_addr->sa_family;
+            family = ifa->ifa_addr->sa_family;
 
-                /* Display interface name  */
+            /* Display interface name  */
 
-                size_t found = 0;
-                int interface_id = -1;
-                for(size_t i=0;i<n_found;i++){
-                    if(strcmp(infos[i].name, ifa->ifa_name)==0){
-                        interface_id = i; //the id of the current interface 
-                        found = 1;
-                    }
-                }
-                if(!found){
-                    interface_id = n_found;
-                    n_found++;
-                    infos[interface_id].name = ifa->ifa_name;
-                }
-
-                if (family == AF_INET ) {
-
-                    /* For an AF_INET* interface address, display the address */
-                    s = getnameinfo(ifa->ifa_addr,
-                            sizeof(struct sockaddr_in),
-                            host, NI_MAXHOST,
-                            NULL, 0, NI_NUMERICHOST);
-                    if (s != 0) {
-                       printf("getnameinfo() failed: %s\n", gai_strerror(s));
-                       exit(EXIT_FAILURE);
-                    }
-
-                    infos[interface_id].address = host;
-
-                    /* For an AF_INET* interface address, display the netmask */
-                    s_ = getnameinfo(ifa->ifa_netmask,
-                            sizeof(struct sockaddr_in),
-                            host_, NI_MAXHOST,
-                            NULL, 0, NI_NUMERICHOST);
-                    if (s_ != 0) {
-                       printf("getnameinfo() failed: %s\n", gai_strerror(s_));
-                       exit(EXIT_FAILURE);
-                    }
-
-                    infos[interface_id].netmask = host_;
-
-                } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
-
-                    struct rtnl_link_stats *stats = ifa->ifa_data;
-
-                    infos[interface_id].blocksize = stats->rx_packets;
-
-                    char macp[INET6_ADDRSTRLEN];
-                    struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
-                    int i;
-                    int len = 0;
-                    for (i = 0; i < 6; i++) {
-                        len += sprintf(macp+len, "%02X%s", s->sll_addr[i], i < 5 ? ":":"");
-                    }
-                    infos[interface_id].macadress = macp;
-                }
-
-            }
-
-            int find = 0;
-            if(cmd.n_arguments == 3){
-                for (size_t i=0;i<n_found;i++){
-                    if(strcmp(infos[i].name,cmd.tokens[2])==0){
-                        printf("(%s) ip address:  %s | subnet mask: %s | mac address: %s\n", infos[i].name, infos[i].address, infos[i].netmask, infos[i].macadress );
-                        find = 1;
-                    }
-                }
-                if(!find)
-                    printf("%s not found\n", cmd.tokens[2] );
-            }
-            if(cmd.n_arguments == 2){
-                for (size_t i=0;i<n_found;i++){
-                    printf("interface: %s | packet_received: %d\n", infos[i].name, infos[i].blocksize );
+            size_t found = 0;
+            int interface_id = -1;
+            for(size_t i=0;i<n_found;i++){
+                if(strcmp(infos[i].name, ifa->ifa_name)==0){
+                    interface_id = i; //the id of the current interface 
+                    found = 1;
                 }
             }
+            if(!found){
+                interface_id = n_found;
+                n_found++;
+                infos[interface_id].name = ifa->ifa_name;
+            }
 
-        freeifaddrs(ifaddr);
+            if (family == AF_INET ) {
+
+                /* For an AF_INET* interface address, display the address */
+                s = getnameinfo(ifa->ifa_addr,
+                        sizeof(struct sockaddr_in),
+                        host, NI_MAXHOST,
+                        NULL, 0, NI_NUMERICHOST);
+                if (s != 0) {
+                   printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                   exit(EXIT_FAILURE);
+                }
+
+                infos[interface_id].address = host;
+
+                /* For an AF_INET* interface address, display the netmask */
+                s_ = getnameinfo(ifa->ifa_netmask,
+                        sizeof(struct sockaddr_in),
+                        host_, NI_MAXHOST,
+                        NULL, 0, NI_NUMERICHOST);
+                if (s_ != 0) {
+                   printf("getnameinfo() failed: %s\n", gai_strerror(s_));
+                   exit(EXIT_FAILURE);
+                }
+
+                infos[interface_id].netmask = host_;
+
+            } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+
+                struct rtnl_link_stats *stats = ifa->ifa_data;
+
+                infos[interface_id].blocksize = stats->rx_packets;
+
+                char macp[INET6_ADDRSTRLEN];
+                struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
+                int i;
+                int len = 0;
+                for (i = 0; i < 6; i++) {
+                    len += sprintf(macp+len, "%02X%s", s->sll_addr[i], i < 5 ? ":":"");
+                }
+                infos[interface_id].macadress = macp;
+            }
+
         }
 
-        
+        int find = 0;
+        if(cmd.n_arguments == 3){
+            for (size_t i=0;i<n_found;i++){
+                if(strcmp(infos[i].name,cmd.tokens[2])==0){
+                    printf("(%s) ip address:  %s | subnet mask: %s | mac address: %s\n", infos[i].name, infos[i].address, infos[i].netmask, infos[i].macadress );
+                    find = 1;
+                }
+            }
+            if(!find)
+                printf("%s not found\n", cmd.tokens[2] );
+        }
+        if(cmd.n_arguments == 2){
+            for (size_t i=0;i<n_found;i++){
+                printf("interface: %s | packet_received: %d\n", infos[i].name, infos[i].blocksize );
+            }
+        }
+
+        freeifaddrs(ifaddr);
+    }
+    else if(strcmp(cmd.tokens[1],"infos")==0){
+        struct stat sb;
+
+        char* path;
+        if(cmd.n_arguments == 2){
+            char cwd[256];
+            getcwd(cwd, sizeof(cwd));
+            path = cwd;
+        }
+        else if(cmd.n_arguments == 3){
+            path = cmd.tokens[2];
+        }
+
+        if (stat(path, &sb) == -1) {
+            printf("cannot find the path\n");
+            exit(EXIT_FAILURE);
+        }
+
+        switch (sb.st_mode & S_IFMT) {
+            case S_IFBLK:  printf("type: S_IFBLK\n");            break;
+            case S_IFCHR:  printf("type: S_IFCHR\n");            break;
+            case S_IFDIR:  printf("type: S_IFDIR\n");            break;
+            case S_IFIFO:  printf("type: S_IFIFO\n");            break;
+            case S_IFLNK:  printf("type: S_IFLNK\n");            break;
+            case S_IFREG:  printf("type: S_IFREG\n");            break;
+            case S_IFSOCK: printf("type: S_IFSOCK\n");            break;
+            default:       printf("type: unknown\n");            break;
+        }
+
+        printf("inode number: %ld\n", (long) sb.st_ino);
+        printf("total size: %lld bytes\n", (long long) sb.st_size);
+        printf("number of blocks: %lld blocks\n", (long long) sb.st_blocks);
+        printf("last file modification: %s", ctime(&sb.st_mtime));
+    }
+
     return 1;
 }
 
