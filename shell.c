@@ -192,10 +192,7 @@ static int bash_launch_exec(Cmd cmd)
                 if(tpid != pid)
                     exit(tpid);                
             } while(tpid != pid);
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
             return status_to_return_value(status);
         }
     }
