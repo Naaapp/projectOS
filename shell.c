@@ -79,7 +79,7 @@ struct interfaces_info
 {
     char* name;
     char* address;
-    int blocksize;
+    unsigned int blocksize;
     char* netmask;
     char* macadress;
 };
@@ -159,6 +159,7 @@ static int lsh_sys (Cmd cmd) {
         struct ifaddrs *ifaddr, *ifa;
         int family, s, n, s_;
         char host[NI_MAXHOST];
+        char host_[NI_MAXHOST];
 
         if (getifaddrs(&ifaddr) == -1) {
            perror("getifaddrs");
@@ -170,99 +171,95 @@ static int lsh_sys (Cmd cmd) {
 
         int size_int_info = 10;
         struct interfaces_info infos[size_int_info];
-        int n_found=0;
-
-
+        size_t n_found=0;
 
            for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-               if (ifa->ifa_addr == NULL)
-                   continue;
+                if (ifa->ifa_addr == NULL)
+                    continue;
 
-               family = ifa->ifa_addr->sa_family;
+                family = ifa->ifa_addr->sa_family;
 
-               /* Display interface name  */
+                /* Display interface name  */
 
-                int found = 0;
+                size_t found = 0;
                 int interface_id = -1;
-               for(size_t i=0;i<n_found;i++){
-                    printf("%s\n", infos[i].name);
-                    if(strcmp(infos[i].name, ifa->ifa_name)){
-                        printf("entered\n" );
-                        interface_id = i;
+                for(size_t i=0;i<n_found;i++){
+                    if(strcmp(infos[i].name, ifa->ifa_name)==0){
+                        interface_id = i; //the id of the current interface 
                         found = 1;
                     }
-               }
-               if(!found){
-                    printf("test\n");
+                }
+                if(!found){
                     interface_id = n_found;
                     n_found++;
-                    printf("found%s\n", ifa->ifa_name );
                     infos[interface_id].name = ifa->ifa_name;
-               }
+                }
 
-               printf("%-8s", ifa->ifa_name);
-
-
-               if (family == AF_INET ) {
+                if (family == AF_INET ) {
 
                     /* For an AF_INET* interface address, display the address */
-                   s = getnameinfo(ifa->ifa_addr,
+                    s = getnameinfo(ifa->ifa_addr,
                             sizeof(struct sockaddr_in),
                             host, NI_MAXHOST,
                             NULL, 0, NI_NUMERICHOST);
-                   if (s != 0) {
+                    if (s != 0) {
                        printf("getnameinfo() failed: %s\n", gai_strerror(s));
                        exit(EXIT_FAILURE);
-                   }
+                    }
 
-                   printf("\t\taddress: <%s>\n", host);
+                    infos[interface_id].address = host;
 
                     /* For an AF_INET* interface address, display the netmask */
-                   s_ = getnameinfo(ifa->ifa_netmask,
+                    s_ = getnameinfo(ifa->ifa_netmask,
                             sizeof(struct sockaddr_in),
-                            host, NI_MAXHOST,
+                            host_, NI_MAXHOST,
                             NULL, 0, NI_NUMERICHOST);
-                   if (s_ != 0) {
+                    if (s_ != 0) {
                        printf("getnameinfo() failed: %s\n", gai_strerror(s_));
                        exit(EXIT_FAILURE);
-                   }
+                    }
 
-                   printf("\t\tnetmask: <%s>\n", host);
+                    infos[interface_id].netmask = host_;
 
-               } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+                } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
 
-                   struct rtnl_link_stats *stats = ifa->ifa_data;
+                    struct rtnl_link_stats *stats = ifa->ifa_data;
 
-                   /* Display the packets */
-                   printf("\t\ttx_packets = %10u; rx_packets = %10u\n"
-                          "\t\ttx_bytes   = %10u; rx_bytes   = %10u\n",
-                          stats->tx_packets, stats->rx_packets,
-                          stats->tx_bytes, stats->rx_bytes);
+                    infos[interface_id].blocksize = stats->rx_packets;
 
-                   /* Display the mac adress */
-                   char macp[INET6_ADDRSTRLEN];
-                   struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
+                    char macp[INET6_ADDRSTRLEN];
+                    struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
                     int i;
                     int len = 0;
                     for (i = 0; i < 6; i++) {
                         len += sprintf(macp+len, "%02X%s", s->sll_addr[i], i < 5 ? ":":"");
                     }
-                    printf("%s: %s\n", (ifa)->ifa_name, macp);
-               }
+                    infos[interface_id].macadress = macp;
+                }
 
-           }
+            }
 
-           printf("%s\n", n_found );
-
-        for (size_t i=0;i<n_found;i++){
-            printf("%s\n", infos[i].name );
-        }
+            int find = 0;
+            if(cmd.n_arguments == 3){
+                for (size_t i=0;i<n_found;i++){
+                    if(strcmp(infos[i].name,cmd.tokens[2])==0){
+                        printf("(%s) ip address:  %s | subnet mask: %s | mac address: %s\n", infos[i].name, infos[i].address, infos[i].netmask, infos[i].macadress );
+                        find = 1;
+                    }
+                }
+                if(!find)
+                    printf("%s not found\n", cmd.tokens[2] );
+            }
+            if(cmd.n_arguments == 2){
+                for (size_t i=0;i<n_found;i++){
+                    printf("interface: %s | packet_received: %d\n", infos[i].name, infos[i].blocksize );
+                }
+            }
 
         freeifaddrs(ifaddr);
-        exit(EXIT_SUCCESS);
-
         }
 
+        
     return 1;
 }
 
