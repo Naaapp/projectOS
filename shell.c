@@ -140,14 +140,17 @@ static int lsh_sys (Cmd cmd) {
             strtok(line, "\n"); //Remove the \n at the end of the line
             if(strncmp(line,"name",4)==0){ //If the line begin with "name"
 
-                if(!blocksizefound) //If the blocksize of the previous name not printed because doesn't exist 
+                if(!blocksizefound){ //If the blocksize of the previous name not printed because doesn't exist 
                     printf("blocksize : /\n");
+                    fflush(stdout);
+                }
                 blocksizefound = 0;
 
                 printf("%s | ", line);
             }
             if(strncmp(line,"blocksize",9)==0){ //If the line begin with "blocksize"
                 printf("%s\n", line);
+                fflush(stdout);
                 blocksizefound = 1;
             }
         }
@@ -160,8 +163,6 @@ static int lsh_sys (Cmd cmd) {
 
         struct ifaddrs *ifaddr, *ifa;
         int family, s, n, s_;
-        char host[NI_MAXHOST];
-        char host_[NI_MAXHOST];
 
         if (getifaddrs(&ifaddr) == -1) {
            perror("getifaddrs");
@@ -174,11 +175,11 @@ static int lsh_sys (Cmd cmd) {
         int size_int_info = 10;
         struct interfaces_info infos[size_int_info];
         size_t n_found=0;
-
-        for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+        
+        for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {            
             if (ifa->ifa_addr == NULL)
                 continue;
-
+            
             family = ifa->ifa_addr->sa_family;
 
             /* Display interface name  */
@@ -191,40 +192,61 @@ static int lsh_sys (Cmd cmd) {
                     found = 1;
                 }
             }
+            
             if(!found){
                 interface_id = n_found;
                 n_found++;
                 infos[interface_id].name = ifa->ifa_name;
             }
+        }
+        for(int i=0; i < n_found; i++){
+            infos[i].address = malloc(sizeof(char) * NI_MAXHOST);
+            strcpy(infos[i].address, "0.0.0.0");
+            infos[i].netmask = malloc(sizeof(char) * NI_MAXHOST);
+            strcpy(infos[i].netmask, "0.0.0.0");
+            infos[i].macadress = malloc(sizeof(char) * INET6_ADDRSTRLEN);
+            strcpy(infos[i].macadress, "0.0.0.0");
+        }
+
+        for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+            int interface_id;
+            
+            if (ifa->ifa_addr == NULL)
+                continue;
+            
+            family = ifa->ifa_addr->sa_family;
+
+            /* Display interface name  */
+            
+            for(int i=0; i < n_found; i++){
+                if(strcmp(infos[i].name, ifa->ifa_name)==0)
+                    interface_id = i;
+            }
 
             if (family == AF_INET ) {
-
                 /* For an AF_INET* interface address, display the address */
                 s = getnameinfo(ifa->ifa_addr,
                         sizeof(struct sockaddr_in),
-                        host, NI_MAXHOST,
+                        infos[interface_id].address, NI_MAXHOST,
                         NULL, 0, NI_NUMERICHOST);
                 if (s != 0) {
-                   printf("getnameinfo() failed: %s\n", gai_strerror(s));
-                   exit(EXIT_FAILURE);
+                    printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                    fflush(stdout);
+                    exit(EXIT_FAILURE);
                 }
-
-                infos[interface_id].address = host;
 
                 /* For an AF_INET* interface address, display the netmask */
                 s_ = getnameinfo(ifa->ifa_netmask,
                         sizeof(struct sockaddr_in),
-                        host_, NI_MAXHOST,
+                        infos[interface_id].netmask, NI_MAXHOST,
                         NULL, 0, NI_NUMERICHOST);
                 if (s_ != 0) {
-                   printf("getnameinfo() failed: %s\n", gai_strerror(s_));
-                   exit(EXIT_FAILURE);
+                    printf("getnameinfo() failed: %s\n", gai_strerror(s_));
+                    fflush(stdout);
+                    exit(EXIT_FAILURE);
                 }
 
-                infos[interface_id].netmask = host_;
-
             } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
-
                 struct rtnl_link_stats *stats = ifa->ifa_data;
 
                 infos[interface_id].blocksize = stats->rx_packets;
@@ -236,26 +258,35 @@ static int lsh_sys (Cmd cmd) {
                 for (i = 0; i < 6; i++) {
                     len += sprintf(macp+len, "%02X%s", s->sll_addr[i], i < 5 ? ":":"");
                 }
-                infos[interface_id].macadress = macp;
+                strcpy(infos[interface_id].macadress, macp);
             }
-
         }
 
         int find = 0;
         if(cmd.n_arguments == 3){
             for (size_t i=0;i<n_found;i++){
-                if(strcmp(infos[i].name,cmd.tokens[2])==0){
+                if(strcmp(infos[i].name, cmd.tokens[2])==0){
                     printf("(%s) ip address:  %s | subnet mask: %s | mac address: %s\n", infos[i].name, infos[i].address, infos[i].netmask, infos[i].macadress );
+                    fflush(stdout);
                     find = 1;
                 }
             }
-            if(!find)
+            if(!find){
                 printf("%s not found\n", cmd.tokens[2] );
+                fflush(stdout);
+            }
         }
         if(cmd.n_arguments == 2){
             for (size_t i=0;i<n_found;i++){
                 printf("interface: %s | packet_received: %d\n", infos[i].name, infos[i].blocksize );
+                fflush(stdout);
             }
+        }
+        
+        for(int i=0; i < n_found; i++){
+            free(infos[i].address);
+            free(infos[i].netmask);
+            free(infos[i].macadress);
         }
 
         freeifaddrs(ifaddr);
