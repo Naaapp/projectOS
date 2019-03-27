@@ -201,11 +201,11 @@ static int lsh_sys (Cmd cmd) {
         }
         for(int i=0; i < n_found; i++){
             infos[i].address = malloc(sizeof(char) * NI_MAXHOST);
-            strcpy(infos[i].address, "0.0.0.0");
+            strcpy(infos[i].address, "");
             infos[i].netmask = malloc(sizeof(char) * NI_MAXHOST);
-            strcpy(infos[i].netmask, "0.0.0.0");
+            strcpy(infos[i].netmask, "");
             infos[i].macadress = malloc(sizeof(char) * INET6_ADDRSTRLEN);
-            strcpy(infos[i].macadress, "0.0.0.0");
+            strcpy(infos[i].macadress, "");
         }
 
         for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
@@ -304,9 +304,10 @@ static int lsh_sys (Cmd cmd) {
             path = cmd.tokens[2];
         }
 
-        if (stat(path, &sb) == -1) {
+        if (lstat(path, &sb) == -1) {
             printf("cannot find the path\n");
-            exit(EXIT_FAILURE);
+            fflush(stdout);
+            return 0;
         }
 
         switch (sb.st_mode & S_IFMT) {
@@ -316,14 +317,16 @@ static int lsh_sys (Cmd cmd) {
             case S_IFIFO:  printf("type: S_IFIFO\n");            break;
             case S_IFLNK:  printf("type: S_IFLNK\n");            break;
             case S_IFREG:  printf("type: S_IFREG\n");            break;
-            case S_IFSOCK: printf("type: S_IFSOCK\n");            break;
+            case S_IFSOCK: printf("type: S_IFSOCK\n");           break;
             default:       printf("type: unknown\n");            break;
         }
+        fflush(stdout);
 
         printf("inode number: %ld\n", (long) sb.st_ino);
         printf("total size: %lld bytes\n", (long long) sb.st_size);
         printf("number of blocks: %lld blocks\n", (long long) sb.st_blocks);
         printf("last file modification: %s", ctime(&sb.st_mtime));
+        fflush(stdout);
     }
 
     return 1;
@@ -390,16 +393,15 @@ static int bash_launch_exec(Cmd cmd)
             
             printf("\n");
             fflush(stdout);
-            exit(0);
+            exit(-1);
         }
         else{
             do{
-
                 tpid = wait(&status);
                 if(tpid != pid)
                     exit(tpid);                
             } while(tpid != pid);
-            return WIFEXITED(status);
+            return WEXITSTATUS(status);
         }
     }
 
@@ -423,7 +425,7 @@ static int bash_launch_exec(Cmd cmd)
             }
 
             execvp(args[pipe_locate[i] + 1], args + pipe_locate[i] + 1);
-            exit(0);
+            exit(2);
         }
         else if (i > 0) {
             close(pfd[i - 1][0]); close(pfd[i - 1][1]);
