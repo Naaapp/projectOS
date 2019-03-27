@@ -1,7 +1,8 @@
 
 /*
  * Shell implementation by Théo Stassen and Ludovic Sangiovanni
- * 20/03/19
+ * Project 2 Version
+ * 27/03/19
  * shell.c
 */
 
@@ -30,7 +31,6 @@
 
 #define TOK_DEL " \t\r\n\a"
 
-int specialreturnvalue = 1;
 
 /*******************************************************************************/
 
@@ -98,6 +98,11 @@ static int lsh_sys(Cmd cmd);
 
 static int bash_launch_exec(Cmd cmd);
 
+
+/*
+* structure used to collect information about the interfaces
+*/
+
 struct interfaces_info
 {
     char* name;
@@ -110,6 +115,7 @@ struct interfaces_info
 /*
   List of builtin commands, followed by their corresponding functions.
  */
+
 char *builtin_str_no_arg[] = {
   "help",
   "exit",
@@ -150,11 +156,14 @@ static int lsh_sys (Cmd cmd) {
         return 0;
     }
 
+    // Case 1 : sys crypto
     if(strcmp(cmd.tokens[1],"crypto")==0){
+        //Open the file which contain all the information needed
         fp = fopen("/proc/crypto", "r");
         if (fp == NULL)
             return 1;
 
+        //Read the file line by line
         int blocksizefound = 1;
         while ((read = getline(&line, &len, fp)) != -1) {
 
@@ -181,47 +190,49 @@ static int lsh_sys (Cmd cmd) {
         if (line)
             free(line);
     }
+    //Case 2 : sys interfaces or sys interfaces <name>
     else if(strcmp(cmd.tokens[1],"interfaces")==0){
 
         struct ifaddrs *ifaddr, *ifa;
         int family, s, n, s_;
 
+        //We use the getifaddrs function to find the needed information 
+        //in the linked list (ifaddr is the begin adress of it)
         if (getifaddrs(&ifaddr) == -1) {
            perror("getifaddrs");
            return 1;
         }
 
-        /* Walk through linked list, maintaining head pointer so we
-          can free list later */
-
-        int size_int_info = 10;
-        struct interfaces_info infos4[size_int_info];
-        struct interfaces_info infos6[size_int_info];
-        size_t n_found=0;
+        // Walk through linked list, maintaining head pointer so we
+        //  can free list later 
+        int size_int_info = 50;
+        struct interfaces_info infos4[size_int_info]; //Contain information of the interfaces (ipv4)
+        struct interfaces_info infos6[size_int_info]; //Contain information of the interfaces (ipv6)
+        size_t n_found=0; //Number of interfaces found
         
+        //First walk to find the different interfaces and put the names in infos
         for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {            
             if (ifa->ifa_addr == NULL)
                 continue;
-            
-            family = ifa->ifa_addr->sa_family;
-
-            /* Display interface name  */
 
             size_t found = 0;
             int interface_id = -1;
+
+            //We verify if the current name already exists 
             for(size_t i=0;i<n_found;i++){
                 if(strcmp(infos4[i].name, ifa->ifa_name)==0){
-                    interface_id = i; //the id of the current interface 
                     found = 1;
                 }
             }
             
+            //If it doesn't exit we add it to infos4
             if(!found){
-                interface_id = n_found;
+                interface_id = n_found; //the id of the current interface 
                 n_found++;
                 infos4[interface_id].name = ifa->ifa_name;
             }
         }
+        //Allocate memory for the infos
         for(size_t i=0; i < n_found; i++){
             infos4[i].address = malloc(sizeof(char) * NI_MAXHOST);
             strcpy(infos4[i].address, "");
@@ -237,23 +248,26 @@ static int lsh_sys (Cmd cmd) {
             strcpy(infos6[i].macadress, "");
         }
 
+        //Second walk to put the information needed in the infos structure
         for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
             int interface_id;
             
             if (ifa->ifa_addr == NULL)
                 continue;
             
+            //Family of information we can find in this current ifa
             family = ifa->ifa_addr->sa_family;
 
-            /* Display interface name  */
-            
+            //We find the name of the current interface we can find some information
             for(size_t i=0; i < n_found; i++){
                 if(strcmp(infos4[i].name, ifa->ifa_name)==0)
                     interface_id = i;
             }
 
+            //Case 1 : we can find the ip address and the netmask
             if (family == AF_INET) {
-                /* For an AF_INET* interface address, display the address */
+
+                //We extract the adress and put it into info4
                 s = getnameinfo(ifa->ifa_addr,
                         sizeof(struct sockaddr_in),
                         infos4[interface_id].address, NI_MAXHOST,
@@ -264,7 +278,7 @@ static int lsh_sys (Cmd cmd) {
                     return 1;
                 }
 
-                /* For an AF_INET* interface address, display the netmask */
+                //We extract the netmask and put it into info4
                 s_ = getnameinfo(ifa->ifa_netmask,
                         sizeof(struct sockaddr_in),
                         infos4[interface_id].netmask, NI_MAXHOST,
@@ -275,11 +289,17 @@ static int lsh_sys (Cmd cmd) {
                     return 1;
                 }
 
-            } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+            } 
+            //Case 2 : we can find the mac adress and the number of packets received
+            else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+
+                //Structure which contain the information about packets
                 struct rtnl_link_stats *stats = ifa->ifa_data;
 
+                //We find the number of packet received
                 infos4[interface_id].blocksize = stats->rx_packets;
 
+                //We find the MAC adress and put it into macp
                 char macp[INET6_ADDRSTRLEN];
                 struct sockaddr_ll *s = (struct sockaddr_ll*)(ifa->ifa_addr);
                 int i;
@@ -289,7 +309,10 @@ static int lsh_sys (Cmd cmd) {
                 }
                 strcpy(infos4[interface_id].macadress, macp);
             }
+            //Optional Case :  we can find the ipv6 adress and subnet mask 
             else if(family == AF_INET6){
+
+                //We extract the adress and put it into info4
                 s = getnameinfo(ifa->ifa_addr,
                         sizeof(struct sockaddr_in6),
                         infos6[interface_id].address, NI_MAXHOST,
@@ -300,8 +323,7 @@ static int lsh_sys (Cmd cmd) {
                     return 1;
                 }
                 
-                   
-                // For an AF_INET* interface address, display the netmask 
+                //We extract the netmask and put it into info4
                 s_ = getnameinfo(ifa->ifa_netmask,
                         sizeof(struct sockaddr_in6),
                         infos6[interface_id].netmask, NI_MAXHOST,
@@ -315,6 +337,7 @@ static int lsh_sys (Cmd cmd) {
             }
         }
 
+        //If the command was interface <name> we search the corresponding name in infos and print the information
         int find = 0;
         if(cmd.n_arguments == 3){
             for (size_t i=0;i<n_found;i++){
@@ -324,6 +347,10 @@ static int lsh_sys (Cmd cmd) {
                     printf(" | subnet mask: %s", infos4[i].netmask);
                     printf(" | mac adress: %s", infos4[i].macadress);
                     printf("\n");
+
+                    //This optional part print the information about ipv6 interfaces
+
+                    /*
                     if(strcmp(infos6[i].address, "") || strcmp(infos6[i].netmask, "") || strcmp(infos6[i].macadress, "")){
                         printf("(%s)", infos4[i].name);
                         printf(" ipv6 address: %s", infos6[i].address);
@@ -331,6 +358,8 @@ static int lsh_sys (Cmd cmd) {
                         printf(" | mac adress: %s", infos6[i].macadress);
                         printf("\n");
                     }
+                    */
+
                     fflush(stdout);
                     find = 1;
                 }
@@ -340,6 +369,8 @@ static int lsh_sys (Cmd cmd) {
                 fflush(stdout);
             }
         }
+
+        //If the command was interfaces we needed info of all the interfaces stored
         if(cmd.n_arguments == 2){
             for (size_t i=0;i<n_found;i++){
                 printf("interface: %s | packet_received: %d\n", infos4[i].name, infos4[i].blocksize );
@@ -355,25 +386,30 @@ static int lsh_sys (Cmd cmd) {
 
         freeifaddrs(ifaddr);
     }
+    //Case 3: infos
     else if(strcmp(cmd.tokens[1],"infos")==0){
         struct stat sb;
 
+        //If no arguments of infos we use the current directory
         char* path;
         if(cmd.n_arguments == 2){
             char cwd[256];
             getcwd(cwd, sizeof(cwd));
             path = cwd;
         }
+        //If arguments of inofs we use it as directory
         else if(cmd.n_arguments == 3){
             path = cmd.tokens[2];
         }
 
+        //The funtion lstat gies in sb the infos about the directory / file  of the given path
         if (lstat(path, &sb) == -1) {
             printf("cannot find the path\n");
             fflush(stdout);
             return 1;
         }
 
+        //We print the information needes
         switch (sb.st_mode & S_IFMT) {
             case S_IFBLK:  printf("type: S_IFBLK\n");            break;
             case S_IFCHR:  printf("type: S_IFCHR\n");            break;
@@ -430,15 +466,6 @@ static int lsh_help(){
 
 static int lsh_exit(){
     return -1;
-}
-
-static int status_to_return_value(int status){
-    int returnvalue = 0;
-    if(status == 0)
-        returnvalue = 1;
-    else
-        returnvalue = 0;
-    return returnvalue;
 }
 
 static int bash_launch_exec(Cmd cmd)
@@ -538,7 +565,7 @@ static int bash_launch_exec(Cmd cmd)
     return WEXITSTATUS(stat_ret);
 }
 
-////end of static functions
+////end of static functions//////////
 
 Cmd *create_cmd(){
     Cmd *cmd = malloc(sizeof(Cmd));

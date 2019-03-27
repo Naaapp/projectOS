@@ -1,8 +1,8 @@
 
 /*
  * Shell implementation by Théo Stassen and Ludovic Sangiovanni
- * 20/03/19
- * main.c
+ * Project 2 Version
+ * 27/03/19
 */
 
 /*******************************************************************************/
