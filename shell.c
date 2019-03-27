@@ -456,6 +456,7 @@ static int bash_launch_exec(Cmd cmd)
         if (fork() == 0) {
             fflush(stdout);
             if (i == 0) {
+                dup2(pfd[i][1], 1);
                 close(pfd[i][0]); 
                 close(pfd[i][1]);
             } else if (i == pipe_count) {
@@ -464,6 +465,7 @@ static int bash_launch_exec(Cmd cmd)
                 close(pfd[i - 1][1]);
             } else {
                 dup2(pfd[i - 1][0], 0);
+                dup2(pfd[i][1], 1);
                 close(pfd[i - 1][0]); close(pfd[i - 1][1]);
                 close(pfd[i][0]); close(pfd[i][1]);
             }
