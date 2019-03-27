@@ -449,13 +449,13 @@ static int bash_launch_exec(Cmd cmd)
             return WEXITSTATUS(status);
         }
     }
-
     for (i = 0; i < pipe_count + 1 && pipe_count != 0; i++) {
+        
         if (i != pipe_count) pipe(pfd[i]);
 
         if (fork() == 0) {
+            fflush(stdout);
             if (i == 0) {
-                dup2(pfd[i][1], 1);
                 close(pfd[i][0]); 
                 close(pfd[i][1]);
             } else if (i == pipe_count) {
@@ -464,25 +464,26 @@ static int bash_launch_exec(Cmd cmd)
                 close(pfd[i - 1][1]);
             } else {
                 dup2(pfd[i - 1][0], 0);
-                dup2(pfd[i][1], 1);
                 close(pfd[i - 1][0]); close(pfd[i - 1][1]);
                 close(pfd[i][0]); close(pfd[i][1]);
             }
-
             execvp(args[pipe_locate[i] + 1], args + pipe_locate[i] + 1);
-            exit(2);
+            
+            exit(1);
         }
         else if (i > 0) {
             close(pfd[i - 1][0]); close(pfd[i - 1][1]);
         }
     }
 
-    int status;
+    int status, stat_ret;
 
     for (i = 0; i < pipe_count + 1; i++) {
-            wait(&status);
+        wait(&status);
+        if(WEXITSTATUS(status))
+            stat_ret = status;
     }
-    return WEXITSTATUS(status);
+    return WEXITSTATUS(stat_ret);
 }
 
 ////end of static functions
@@ -538,9 +539,23 @@ int read_line(Cmd* cmd){
     token = strtok(buffer, TOK_DEL);
     int n_args = 0;
     while (token != NULL) {
-        strcpy(cmd->tokens[position], token);
-        position++;
-        token = strtok(NULL, TOK_DEL);
+        if(!strcmp(token, "|")){
+            strcpy(cmd->tokens[position], token);
+            position++;
+        }
+        else if(token[0] == '|'){
+            strcpy(cmd->tokens[position], "|");
+            position++;
+            n_args++;
+            token++;
+            strcpy(cmd->tokens[position], token);
+            position++;
+        }
+        else{
+            strcpy(cmd->tokens[position], token);
+            position++;
+        }
+        token = strtok(NULL, TOK_DEL);   
         n_args++;
     }
 
